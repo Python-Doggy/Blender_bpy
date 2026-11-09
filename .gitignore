@@ -1,0 +1,28 @@
+# Blender backup files
+*.blend1
+*.blend2
+*.blend3
+*.blend4
+*.blend5
+*.blend6
+*.blend7
+*.blend8
+*.blend9
+
+# Temp & render cache
+*.tmp
+*.bak
+render/
+cache/
+blender_cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+
+# System files
+.DS_Store
+Thumbs.db

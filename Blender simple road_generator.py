@@ -1,6 +1,7 @@
 import bpy
 import bmesh
 import math
+import random
 
 for obj in list(bpy.data.objects):
     bpy.data.objects.remove(obj,do_unlink = True)
@@ -80,3 +81,52 @@ for side in [-1,1]:
 cone.free()
 cone1.free()
 cone2.free()
+
+def random_val():
+    s = random.random()
+    if s > 0.5:
+        return random.uniform(-4,-2)
+    else:
+        return random.uniform(2,4)
+stone = bmesh.new()
+bmesh.ops.create_uvsphere(stone,u_segments = 32,v_segments = 16,radius = 0.4)
+
+for x in range(100):
+    stone_mesh = bpy.data.meshes.new("Stone")
+    stone.to_mesh(stone_mesh)
+    stone_mesh.update()
+
+    obj = bpy.data.objects.new("Stone",stone_mesh)
+    bpy.context.collection.objects.link(obj)
+    z = random.uniform(0.5,1.5)
+    obj.scale = (random.uniform(0.5,2),random.uniform(0.5,2),1)
+    obj.location = (random.uniform(0,100),random_val(),z * 0.2)
+stone.free()
+
+grass1 = bmesh.new()
+bmesh.ops.create_grid(grass1,size = 0.4)
+grass2 = bmesh.new()
+bmesh.ops.create_grid(grass2,size = 0.4)
+
+
+for j in range(100):
+    grass_mesh1 = bpy.data.meshes.new(f"Grass1{j}")
+    grass_mesh2 = bpy.data.meshes.new(f"Grass2{j}")
+    grass1.to_mesh(grass_mesh1)
+    grass2.to_mesh(grass_mesh2)
+    grass_mesh1.update()
+    grass_mesh2.update()
+
+    obj1 = bpy.data.objects.new(f"Grass1{j}",grass_mesh1)
+    obj2 = bpy.data.objects.new(f"Grass2{j}",grass_mesh2)
+    bpy.context.collection.objects.link(obj1)
+    bpy.context.collection.objects.link(obj2)
+
+    z_rot = random.uniform(0,90)
+    x_loc = random.uniform(0,100)
+    obj1.rotation_euler = (math.radians(90),0,z_rot)
+    obj2.rotation_euler = (0,math.radians(90),z_rot)
+    obj1.location = (x_loc,random_val(),0.2)
+    obj2.location = (x_loc,random_val(),0.2)
+grass1.free()
+grass2.free()

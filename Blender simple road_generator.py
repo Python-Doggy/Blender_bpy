@@ -130,3 +130,33 @@ for j in range(100):
     obj2.location = (x_loc,random_val(),0.2)
 grass1.free()
 grass2.free()
+
+house = bmesh.new()
+bmesh.ops.create_cube(house,size = 1)
+y_loc = random.uniform(4,6)
+
+roof = bmesh.new()
+bmesh.ops.create_cone(roof,radius1 = 0.5,radius2 = 0,segments = 32,depth = 1)
+
+for i in range(0,100):
+    for j in [-1,1]:
+        if i % 5 == 0:
+            house_mesh = bpy.data.meshes.new("House")
+            house.to_mesh(house_mesh)
+            house_mesh.update()
+
+            obj1 = bpy.data.objects.new("House",house_mesh)
+            bpy.context.collection.objects.link(obj1)
+            obj1.location = (i,y_loc,1)
+            obj1.rotation_euler = (0,0,math.radians(random.uniform(0,30)))
+
+            roof_mesh = bpy.data.meshes.new("Roof")
+            roof.to_mesh(roof_mesh)
+            roof_mesh.update()
+
+            obj2 = bpy.data.objects.new("Roof",roof_mesh)
+            bpy.context.collection.objects.link(obj2)
+            obj2.location = (i, y_loc, 2)
+            obj2.rotation_euler = (0, 0, math.radians(random.uniform(0, 30)))
+house.free()
+roof.free()

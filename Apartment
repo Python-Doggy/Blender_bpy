@@ -1,0 +1,78 @@
+import bpy
+import bmesh
+
+def create_wall(name,location,scale):
+    wall = bmesh.new()
+    bmesh.ops.create_cube(wall,size = 1)
+
+    wall_mesh = bpy.data.meshes.new(f"{name}")
+    wall.to_mesh(wall_mesh)
+    wall_mesh.update()
+
+    wall_obj = bpy.data.objects.new(f"{name}",wall_mesh)
+    bpy.context.collection.objects.link(wall_obj)
+
+    wall_obj.location = location
+    wall_obj.scale = scale
+    wall.free()
+    return wall_obj
+
+generated_objects = []
+
+buildings_objects = [
+    {"name" : "Wall_North1_1" , "location" : (-5.25,8.4,0) , "scale" : (1.5,0.2,3.5)},
+    {"name" : "Wall_North1_2" , "location" : (-0.9,8.4,0) , "scale" : (3,0.2,3.5)},
+    {"name" : "Wall_North1_3" , "location" : (3.1,8.4,0) , "scale" : (2,0.2,3.5)},
+    {"name" : "Wall_Earth1_1" , "location" : (4.2,7.25,0) , "scale" : (0.2,2.5,3.5)},
+    {"name" : "Wall_Earth1_2" , "location" : (4.2,2.75,0) , "scale" : (0.2,2.5,3.5)},
+    {"name" : "Wall_North2" , "location" : (5.2,1.5,0) , "scale" : (2,0.2,3.5)},
+    {"name" : "Wall_Earth2" , "location" : (6.1,1.25,0) , "scale" : (0.2,0.5,3.5)},
+    {"name" : "Wall_Door" , "location" : (6.1,0.5,1.25) , "scale" : (0.2,1,1)},
+    {"name" : "Wall_West1_1" , "location" : (-6.1,7.5,0) , "scale" : (0.2,2,3.5)},
+    {"name" : "Wall_West1_2" , "location" : (-6.1,2.75,0) , "scale" : (0.2,2.5,3.5)}
+]
+buildings_windows_wall = [
+    {"name" : "Window_Wall_West1_Down" , "location" : (-6.1,0.75,-1.25) , "scale" : (0.2,1.5,1)},
+    {"name" : "Window_Wall_West1_Up" , "location" : (-6.1,0.75,1.25) , "scale" : (0.2,1.5,1)},
+    {"name" : "Window_Wall_West2_Down" , "location" : (-6.1,5.25,-1.25) , "scale" : (0.2,2.5,1)},
+    {"name" : "Window_Wall_West2_Up" , "location" : (-6.1,5.25,1.25) , "scale" : (0.2,2.5,1)},
+    {"name" : "Window_Wall_North1_Down" , "location" : (-3.45,8.4,-1.25) , "scale" : (2.1,0.2,1)},
+    {"name" : "Window_Wall_North1_Up" , "location" : (-3.45,8.4,1.25) , "scale" : (2.1,0.2,1)},
+    {"name" : "Window_Wall_North2_Down" , "location" : (1.35,8.4,-1.25) , "scale" : (1.5,0.2,1)},
+    {"name" : "Window_Wall_North2_Up" , "location" : (1.35,8.4,1.25) , "scale" : (1.5,0.2,1)},
+    {"name" : "Window_Wall_Earth_Down" , "location" : (4.2,5,-1.25) , "scale" : (0.2,2,1)},
+    {"name" : "Window_Wall_Earth_Up" , "location" : (4.2,5,1.25) , "scale" : (0.2,2,1)}
+]
+
+for i in range(6):
+    for side in [-1,1]:
+        for part in buildings_objects:
+            wall_obj = create_wall(
+                name = part["name"],
+                location = (part["location"][0], part["location"][1] * side , part["location"][2] + i * 3.5),
+                scale= part["scale"]
+            )
+            generated_objects.append(wall_obj)
+
+        for windows_wall in buildings_windows_wall:
+            windows_wall_obj = create_wall(
+                name = windows_wall["name"],
+                location = (windows_wall["location"][0] , windows_wall["location"][1] * side , windows_wall["location"][2] + i * 3.5),
+                scale = windows_wall["scale"]
+            )
+            generated_objects.append(windows_wall_obj)
+
+bpy.ops.object.select_all(action = 'DESELECT')
+for obj in generated_objects:
+    obj.select_set(True)
+bpy.context.view_layer.objects.active = generated_objects[-1]
+bpy.ops.object.join()
+
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.transform.resize(value=(1.5, 1, 1), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', constraint_axis=(True, False, False), mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False, snap=False, snap_elements={'INCREMENT'}, use_snap_project=False, snap_target='CLOSEST', use_snap_self=True, use_snap_edit=True, use_snap_nonedit=True, use_snap_selectable=False)
+
+bpy.ops.object.transform_apply(location = True , scale = True , rotation = True)
+
+bpy.ops.object.editmode_toggle()
+bpy.ops.mesh.select_all(action = 'SELECT')
+bpy.ops.mesh.remove_doubles()

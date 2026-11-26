@@ -1,0 +1,131 @@
+from __future__ import annotations
+import math
+import os
+import sys
+import bpy
+from mathutils import Vector
+
+ROOT = r"C:\Users\HP\Documents\deepseek-harness\default-workspace"
+GLB = os.path.join(ROOT, "qingdao", "output", "Qingdao_FushanBay_CBD.glb")
+RENDERS = os.path.join(ROOT, "qingdao", "renders")
+os.makedirs(RENDERS, exist_ok=True)
+
+def gl(x, y, z):
+    return Vector((x, -z, y))
+
+def look_at(obj, target):
+    d = Vector(target) - obj.location
+    obj.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+
+def clear():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+
+def import_scene():
+    bpy.ops.import_scene.gltf(filepath=GLB)
+    return bpy.context.scene
+
+def setup_world(strength=1.0, ambient_strength=0.42):
+    scene = bpy.context.scene
+    world = bpy.data.worlds.new("QingdaoSky")
+    scene.world = world
+    world.use_nodes = True
+    nt = world.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputWorld")
+    env = nt.nodes.new("ShaderNodeTexEnvironment")
+    sky_path = os.path.join(ROOT, "qingdao", "textures", "Sky_Qingdao_Equirect.png")
+    if os.path.exists(sky_path):
+        env.image = bpy.data.images.load(sky_path)
+        env.image.colorspace_settings.name = "sRGB"
+    else:
+        sky = nt.nodes.new("ShaderNodeTexSky")
+        sky.sky_type = "NISHITA"
+        sky.sun_disc = False
+        sky.sun_elevation = math.radians(34.0)
+        bg_fallback = nt.nodes.new("ShaderNodeBackground")
+        nt.links.new(sky.outputs["Color"], bg_fallback.inputs["Color"])
+        env = None
+    bg_cam = nt.nodes.new("ShaderNodeBackground")
+    bg_light = nt.nodes.new("ShaderNodeBackground")
+    if env is not None:
+        nt.links.new(env.outputs["Color"], bg_cam.inputs["Color"])
+        nt.links.new(env.outputs["Color"], bg_light.inputs["Color"])
+    else:
+        nt.links.new(bg_fallback.outputs["Background"], bg_cam.inputs["Color"])
+        nt.links.new(bg_fallback.outputs["Background"], bg_light.inputs["Color"])
+    bg_cam.inputs["Strength"].default_value = strength
+    bg_light.inputs["Strength"].default_value = ambient_strength
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs["Fac"])
+    nt.links.new(bg_light.outputs["Background"], mix.inputs[1])
+    nt.links.new(bg_cam.outputs["Background"], mix.inputs[2])
+    nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
+    return world
+
+def setup_sun():
+    scene = bpy.context.scene
+    sun_data = bpy.data.lights.new("Sun", type="SUN")
+    sun = bpy.data.objects.new("Sun", sun_data)
+    bpy.context.collection.objects.link(sun)
+    sun.location = (700, 1050, 620)
+    look_at(sun, (0, 0, 0))
+    sun_data.energy = 7.5
+    sun_data.angle = math.radians(1.3)
+    sun_data.color = (1.0, 0.91, 0.78)
+    return sun
+
+def setup_haze(density=0.00014):
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 650))
+    obj = bpy.context.object
+    obj.name = "Atmosphere_Haze"
+    obj.scale = (4200, 4200, 1650)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    mat = bpy.data.materials.new("Atmosphere_Haze")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    vol = nt.nodes.new("ShaderNodeVolumePrincipled")
+    vol.inputs["Color"].default_value = (0.67, 0.78, 0.90, 1.0)
+    vol.inputs["Density"].default_value = density
+    vol.inputs["Anisotropy"].default_value = 0.25
+    nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
+    obj.data.materials.append(mat)
+    return obj
+
+def _principled(mat):
+    if not mat or not mat.use_nodes:
+        return None
+    for n in mat.node_tree.nodes:
+        if n.type == "BSDF_PRINCIPLED":
+            return n
+    return None
+
+def improve_water():
+    mat = bpy.data.materials.get("Water_Sea")
+    if not mat:
+        return
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = _principled(mat)
+    if not bsdf:
+        return
+    for name, value in (("Roughness", 0.11), ("Metallic", 0.0),
+                        ("IOR", 1.333), ("Specular IOR Level", 0.52)):
+        if name in bsdf.inputs:
+            inp = bsdf.inputs[name]
+            for link in list(inp.links):
+                nt.links.remove(link)
+            inp.default_value = value
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    n1 = nt.nodes.new("ShaderNodeTexNoise")
+    n1.inputs["Scale"].default_value = 0.021
+    n1.inputs["Detail"].default_value = 10.0
+    n1.inputs["Roughness"].default_value = 0.66
+    n1.inputs["Lacunarity"].default_value = 2.2
+    nt.links.new(tc.outputs["Object"], n1.inputs["Vector"])
+    n2 = nt.nodes.new("ShaderNodeTexNoise")
+    n2.inputs["Scale"].default_value = 0.125
+    n2.inputs["Detail"].default_value = 6.0
+    n2.inputs["Roughness"].default_value = 0.58
